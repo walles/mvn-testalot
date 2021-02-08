@@ -172,30 +172,44 @@ def print_slow_tests_report(results: List[Result]) -> None:
         print(f"| {result.kind} | {result.duration} | `{testname}` |")
 
 
+def is_flaky(string: str) -> bool:
+    if not string:
+        return False
+
+    first_char = string[0]
+    for char in string:
+        if char != first_char:
+            # Multiple kinds of results, we have a flake!
+            return True
+
+    return False
+
+
 def print_flaky_tests_report(results: List[Result]) -> None:
-    counts: Dict[str, Dict[ResultKind, int]] = {}
+    result_string: Dict[str, str] = {}
     for result in results:
-        counts_for_result = counts.get(result.name, {})
-        count_for_kind = counts_for_result.get(result.kind, 0)
-        counts_for_result[result.kind] = count_for_kind + 1
-        counts[result.name] = counts_for_result
+        string = result_string.get(result.name, "")
+        if result.kind == ResultKind.PASS:
+            string += "."
+        elif result.kind == ResultKind.FAIL:
+            string += "x"
+        elif result.kind == ResultKind.ERROR:
+            string += "E"
+        else:
+            assert False
+        result_string[result.name] = string
 
     print("")
     print("# Flaky tests")
     print("")
-    print("| Pass | Fail | Error | Name |")
-    print("|------|------|-------|------|")
-    for name in sorted(counts.keys()):
-        stats = counts[name]
-        if len(stats) == 1:
-            # Not flaky, only one kind of result
+    print("| Result | Name |")
+    print("|--------|------|")
+    for name in sorted(result_string.keys()):
+        string = result_string[name]
+        if not is_flaky(string):
             continue
 
-        assert len(stats) > 0
-        pazz = stats.get(ResultKind.PASS, 0)
-        fail = stats.get(ResultKind.FAIL, 0)
-        error = stats.get(ResultKind.ERROR, 0)
-        print(f"| {pazz:4d} | {fail:4d} | {error:5d} | `{name}` |")
+        print(f"| `{string}` | `{name}` |")
 
 
 def print_report(results: List[Result]) -> None:
