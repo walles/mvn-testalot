@@ -39,6 +39,7 @@ class Result(NamedTuple):
 
 
 def mvn_test_times(count: int) -> List[Result]:
+    global_start = datetime.datetime.now()
     for i in range(count):
         if os.path.isdir("target/surefire-reports"):
             shutil.rmtree("target/surefire-reports")
@@ -46,20 +47,42 @@ def mvn_test_times(count: int) -> List[Result]:
         if not os.path.isfile("pom.xml"):
             sys.exit("Must be in the root of the source tree, pom.xml not found")
 
+        start = datetime.datetime.now()
         result = subprocess.run(args=["mvn", "test"])
-        print(f"Exit code {result.returncode}")
+        end = datetime.datetime.now()
+        duration = end - start
+        print("")
+        print(f"mvn-testalot: Exit code {result.returncode} after {duration}")
+
+        runs_left = count - 1 - i
+        if runs_left:
+            runs_done = i + 1
+            time_elapsed = datetime.datetime.now() - global_start
+            time_per_run = time_elapsed / runs_done
+            time_left = time_per_run * runs_left
+            eta = datetime.datetime.now() + time_left
+            print(
+                f"mvn-testalot: {runs_left} runs left, expect finish at {eta.isoformat(timespec='seconds')}, {time_left} from now"
+            )
+
         assert os.path.isdir("target/surefire-reports")  # Otherwise no tests were run
 
         os.makedirs("target/testalot", exist_ok=True)
 
-        # Example: "2021-02-08T093519"
+        # Example: "20210208T093519"
         timestamp = (
-            datetime.datetime.now().isoformat(timespec="seconds").replace(":", "")
+            datetime.datetime.now()
+            .isoformat(timespec="seconds")
+            .replace(":", "")
+            .replace("-", "")
         )
 
         shutil.move(
             "target/surefire-reports", f"target/testalot/surefire-reports-{timestamp}"
         )
+
+    now = datetime.datetime.now()
+    print(f"mvn-testalot: All done at {now.isoformat(timespec='seconds')}")
 
     return collect_results(["target/testalot"])
 
@@ -75,7 +98,7 @@ def parse_xml(path: str):
                 results.append(Result(current_test, result_kind))
             testname = match.group(1)
             classname = match.group(2)
-            current_test = classname + "." + testname
+            current_test = classname + "." + testname + "()"
             result_kind = ResultKind.PASS
             continue
 
@@ -122,9 +145,13 @@ def print_report(results: List[Result]) -> None:
         counts_for_result[result.kind] = count_for_kind + 1
         counts[result.name] = counts_for_result
 
+    print("")
+    print("# Flaky tests")
+    print("")
     print("| Pass | Fail | Error | Name |")
     print("|------|------|-------|------|")
-    for name, stats in counts.items():
+    for name in sorted(counts.keys()):
+        stats = counts[name]
         if len(stats) == 1:
             # Not flaky, only one kind of result
             continue
@@ -133,7 +160,7 @@ def print_report(results: List[Result]) -> None:
         pazz = stats.get(ResultKind.PASS, 0)
         fail = stats.get(ResultKind.FAIL, 0)
         error = stats.get(ResultKind.ERROR, 0)
-        print(f"| {pazz} | {fail} | {error} | {name}|")
+        print(f"| {pazz:4d} | {fail:4d} | {error:5d} | {name} |")
 
 
 def main(args: List[str]) -> None:
