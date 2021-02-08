@@ -7,6 +7,7 @@ Syntax:
 """
 
 import os
+import re
 import sys
 import enum
 import shutil
@@ -14,6 +15,16 @@ import datetime
 import subprocess
 
 from typing import List, NamedTuple
+
+
+# Example: <testcase name="aclExcudeSingleCommand" classname="redis.clients.jedis.tests.commands.AccessControlListCommandsTest" time="0"/>
+TESTCASE = re.compile(r'  <testcase name="([^"]+)" classname="([^"]+)"')
+
+# Example: <error message="ERR unknown command `ZMSCORE`, with args beginning with: `foo`, `b`, ...
+ERROR = re.compile(r"    <error ")
+
+# Example: <failure message="expected:&lt;4&gt; but was:&lt;3&gt;" type=...
+FAILURE = re.compile(r"    <failure ")
 
 
 class ResultKind(enum.Enum):
@@ -53,8 +64,54 @@ def mvn_test_times(count: int) -> List[Result]:
     return collect_results(["target/testalot"])
 
 
+def parse_xml(path: str):
+    results = []
+    current_test = None
+    result_kind = None
+    for line in open(path, "r"):
+        if match := TESTCASE.match(line):
+            if current_test:
+                assert result_kind
+                results.append(Result(current_test, result_kind))
+            testname = match.group(1)
+            classname = match.group(2)
+            current_test = classname + "." + testname
+            result_kind = ResultKind.PASS
+            continue
+
+        if ERROR.match(line):
+            assert result_kind == ResultKind.PASS
+            result_kind = ResultKind.ERROR
+        elif FAILURE.match(line):
+            assert result_kind == ResultKind.PASS
+            result_kind = ResultKind.FAIL
+
+        # Unknown line, just ignore it
+
+    if current_test:
+        assert result_kind
+        results.append(Result(current_test, result_kind))
+
+    return results
+
+
 def collect_results(paths: List[str]) -> List[Result]:
-    pass
+    results = []
+    for path in paths:
+        if os.path.isfile(path):
+            if path.endswith(".xml"):
+                results += parse_xml(path)
+                continue
+
+        for dirpath, dirnames, filenames in os.walk(path):
+            for filename in filenames:
+                file_with_path = os.path.join(dirpath, filename)
+                if not file_with_path.endswith(".xml"):
+                    continue
+
+                results += parse_xml(file_with_path)
+
+    return results
 
 
 def print_report(results: List[Result]) -> None:
