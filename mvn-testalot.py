@@ -101,7 +101,10 @@ def parse_xml(path: str):
                 results.append(Result(current_test, result_kind, duration))
             testname = match.group(1)
             classname = match.group(2)
-            duration = datetime.timedelta(seconds=float(match.group(3)))
+            duration = datetime.timedelta(
+                # Removing the "," to be able to handle "1,234.567" style numbers
+                seconds=float(match.group(3).replace(",", ""))
+            )
             current_test = classname + "." + testname + "()"
             result_kind = ResultKind.PASS
             continue
@@ -143,30 +146,30 @@ def collect_results(paths: List[str]) -> List[Result]:
 
 
 def print_slow_tests_report(results: List[Result]) -> None:
-    durations: Dict[str, datetime.timedelta] = {}
+    slow_results: Dict[str, Result] = {}
 
     # Figure out max duration for each test case
-    for result in results:
-        duration = durations.get(result.name, datetime.timedelta())
-        if result.duration > duration:
-            duration = result.duration
-        durations[result.name] = duration
+    for current_result in results:
+        slow_result = slow_results.get(current_result.name, None)
+        if slow_result is None or current_result.duration > slow_result.duration:
+            slow_result = current_result
+        slow_results[current_result.name] = slow_result
 
     print("")
     print("# Slow tests")
     print("")
-    print("| Duration | Name |")
-    print("|----------|------|")
+    print("| Result | Duration | Name |")
+    print("|--------|----------|------|")
 
     print_count = 0
-    for testname, duration in sorted(
-        durations.items(), key=lambda x: x[1], reverse=True
+    for testname, result in sorted(
+        slow_results.items(), key=lambda x: x[1].duration, reverse=True
     ):
         if print_count > 7:
             break
         print_count += 1
 
-        print(f"| {duration} | `{testname}` |")
+        print(f"| {result.kind} | {result.duration} | `{testname}` |")
 
 
 def print_flaky_tests_report(results: List[Result]) -> None:
