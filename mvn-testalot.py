@@ -18,6 +18,10 @@ import subprocess
 from typing import List, NamedTuple, Dict
 
 
+# Number of entries to show in the slow-tests top list
+TOP_SLOW_TESTS = 10
+
+
 # Example: <testcase name="aclExcudeSingleCommand" classname="redis.clients.jedis.tests.commands.AccessControlListCommandsTest" time="0"/>
 TESTCASE = re.compile(r'  <testcase name="([^"]+)" classname="([^"]+)" time="([^"]+)"')
 
@@ -165,21 +169,31 @@ def print_slow_tests_report(results: List[Result]) -> None:
             slow_result = current_result
         slow_results[current_result.name] = slow_result
 
+    print_these = sorted(slow_results.values(), key=lambda r: r.duration, reverse=True)[
+        :TOP_SLOW_TESTS
+    ]
+
+    slow_testnames = list(map(lambda result: result.name, print_these))
+    total_time = datetime.timedelta(0)
+    time_spent_in_slow_tests = datetime.timedelta(0)
+    for current_result in results:
+        total_time += current_result.duration
+        if current_result.name in slow_testnames:
+            time_spent_in_slow_tests += current_result.duration
+
+    slow_test_percentage = int((time_spent_in_slow_tests * 100) / total_time)
+
     print("")
     print("# Slow tests")
     print("")
+    print(
+        f"The tests listed here make up {slow_test_percentage}% of the total testing time."
+    )
+    print("")
     print("| Result | Duration | Name |")
     print("|--------|----------|------|")
-
-    print_count = 0
-    for testname, result in sorted(
-        slow_results.items(), key=lambda x: x[1].duration, reverse=True
-    ):
-        if print_count > 7:
-            break
-        print_count += 1
-
-        print(f"| {result.kind} | {result.duration} | `{testname}` |")
+    for result in print_these:
+        print(f"| {result.kind} | {result.duration} | `{result.name}` |")
 
 
 def is_flaky(string: str) -> bool:
@@ -211,6 +225,8 @@ def print_flaky_tests_report(results: List[Result]) -> None:
 
     print("")
     print("# Flaky tests")
+    print("")
+    print("`.` = pass, `x` = fail, `E` = error")
     print("")
     print("| Result | Name |")
     print("|--------|------|")
