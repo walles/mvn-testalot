@@ -6,8 +6,12 @@ Syntax:
   mvn-testalot.py report target/testalot/  <-- Produces a Markdown report on stdout
 """
 
+import os
 import sys
 import enum
+import shutil
+import datetime
+import subprocess
 
 from typing import List, NamedTuple
 
@@ -24,7 +28,29 @@ class Result(NamedTuple):
 
 
 def mvn_test_times(count: int) -> List[Result]:
-    pass
+    for i in range(count):
+        if os.path.isdir("target/surefire-reports"):
+            shutil.rmtree("target/surefire-reports")
+
+        if not os.path.isfile("pom.xml"):
+            sys.exit("Must be in the root of the source tree, pom.xml not found")
+
+        result = subprocess.run(args=["mvn", "test"])
+        print(f"Exit code {result.returncode}")
+        assert os.path.isdir("target/surefire-reports")  # Otherwise no tests were run
+
+        os.makedirs("target/testalot", exist_ok=True)
+
+        # Example: "2021-02-08T093519"
+        timestamp = (
+            datetime.datetime.now().isoformat(timespec="seconds").replace(":", "")
+        )
+
+        shutil.move(
+            "target/surefire-reports", f"target/testalot/surefire-reports-{timestamp}"
+        )
+
+    return collect_results(["target/testalot"])
 
 
 def collect_results(paths: List[str]) -> List[Result]:
