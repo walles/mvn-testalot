@@ -166,7 +166,7 @@ def print_slow_tests_report(results: List[Result]) -> None:
             break
         print_count += 1
 
-        print(f"| {duration} | {testname} |")
+        print(f"| {duration} | `{testname}` |")
 
 
 def print_flaky_tests_report(results: List[Result]) -> None:
@@ -192,7 +192,7 @@ def print_flaky_tests_report(results: List[Result]) -> None:
         pazz = stats.get(ResultKind.PASS, 0)
         fail = stats.get(ResultKind.FAIL, 0)
         error = stats.get(ResultKind.ERROR, 0)
-        print(f"| {pazz:4d} | {fail:4d} | {error:5d} | {name} |")
+        print(f"| {pazz:4d} | {fail:4d} | {error:5d} | `{name}` |")
 
 
 def print_report(results: List[Result]) -> None:
