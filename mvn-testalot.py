@@ -14,7 +14,7 @@ import shutil
 import datetime
 import subprocess
 
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Dict
 
 
 # Example: <testcase name="aclExcudeSingleCommand" classname="redis.clients.jedis.tests.commands.AccessControlListCommandsTest" time="0"/>
@@ -115,7 +115,25 @@ def collect_results(paths: List[str]) -> List[Result]:
 
 
 def print_report(results: List[Result]) -> None:
-    pass
+    counts: Dict[str, Dict[ResultKind, int]] = {}
+    for result in results:
+        counts_for_result = counts.get(result.name, {})
+        count_for_kind = counts_for_result.get(result.kind, 0)
+        counts_for_result[result.kind] = count_for_kind + 1
+        counts[result.name] = counts_for_result
+
+    print("| Pass | Fail | Error | Name |")
+    print("|------|------|-------|------|")
+    for name, stats in counts.items():
+        if len(stats) == 1:
+            # Not flaky, only one kind of result
+            continue
+
+        assert len(stats) > 0
+        pazz = stats.get(ResultKind.PASS, 0)
+        fail = stats.get(ResultKind.FAIL, 0)
+        error = stats.get(ResultKind.ERROR, 0)
+        print(f"| {pazz} | {fail} | {error} | {name}|")
 
 
 def main(args: List[str]) -> None:
