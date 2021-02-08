@@ -11,6 +11,7 @@ import re
 import sys
 import enum
 import shutil
+import pathlib
 import datetime
 import subprocess
 
@@ -37,6 +38,7 @@ class Result(NamedTuple):
     name: str
     kind: ResultKind
     duration: datetime.timedelta
+    timestamp: datetime.datetime
 
 
 def mvn_test_times(count: int) -> List[Result]:
@@ -93,12 +95,19 @@ def parse_xml(path: str):
     current_test = None
     result_kind = None
     duration = None
+
+    stat_result = pathlib.Path(path).stat()
+    timestamp = datetime.datetime.fromtimestamp(
+        stat_result.st_mtime, tz=datetime.timezone.utc
+    )
+
     for line in open(path, "r"):
         if match := TESTCASE.match(line):
             if current_test:
                 assert result_kind
+                assert timestamp
                 assert duration is not None
-                results.append(Result(current_test, result_kind, duration))
+                results.append(Result(current_test, result_kind, duration, timestamp))
             testname = match.group(1)
             classname = match.group(2)
             duration = datetime.timedelta(
@@ -119,9 +128,10 @@ def parse_xml(path: str):
         # Unknown line, just ignore it
 
     if current_test:
+        assert timestamp
         assert result_kind
         assert duration is not None
-        results.append(Result(current_test, result_kind, duration))
+        results.append(Result(current_test, result_kind, duration, timestamp))
 
     return results
 
@@ -187,7 +197,7 @@ def is_flaky(string: str) -> bool:
 
 def print_flaky_tests_report(results: List[Result]) -> None:
     result_string: Dict[str, str] = {}
-    for result in results:
+    for result in sorted(results, key=lambda r: r.timestamp):
         string = result_string.get(result.name, "")
         if result.kind == ResultKind.PASS:
             string += "."
