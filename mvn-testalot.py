@@ -18,7 +18,7 @@ from typing import List, NamedTuple, Dict
 
 
 # Example: <testcase name="aclExcudeSingleCommand" classname="redis.clients.jedis.tests.commands.AccessControlListCommandsTest" time="0"/>
-TESTCASE = re.compile(r'  <testcase name="([^"]+)" classname="([^"]+)"')
+TESTCASE = re.compile(r'  <testcase name="([^"]+)" classname="([^"]+)" time="([^"]+)"')
 
 # Example: <error message="ERR unknown command `ZMSCORE`, with args beginning with: `foo`, `b`, ...
 ERROR = re.compile(r"    <error ")
@@ -36,6 +36,7 @@ class ResultKind(enum.Enum):
 class Result(NamedTuple):
     name: str
     kind: ResultKind
+    duration: datetime.timedelta
 
 
 def mvn_test_times(count: int) -> List[Result]:
@@ -88,16 +89,19 @@ def mvn_test_times(count: int) -> List[Result]:
 
 
 def parse_xml(path: str):
-    results = []
+    results: List[Result] = []
     current_test = None
     result_kind = None
+    duration = None
     for line in open(path, "r"):
         if match := TESTCASE.match(line):
             if current_test:
                 assert result_kind
-                results.append(Result(current_test, result_kind))
+                assert duration is not None
+                results.append(Result(current_test, result_kind, duration))
             testname = match.group(1)
             classname = match.group(2)
+            duration = datetime.timedelta(seconds=float(match.group(3)))
             current_test = classname + "." + testname + "()"
             result_kind = ResultKind.PASS
             continue
@@ -113,7 +117,8 @@ def parse_xml(path: str):
 
     if current_test:
         assert result_kind
-        results.append(Result(current_test, result_kind))
+        assert duration is not None
+        results.append(Result(current_test, result_kind, duration))
 
     return results
 
@@ -137,7 +142,34 @@ def collect_results(paths: List[str]) -> List[Result]:
     return results
 
 
-def print_report(results: List[Result]) -> None:
+def print_slow_tests_report(results: List[Result]) -> None:
+    durations: Dict[str, datetime.timedelta] = {}
+
+    # Figure out max duration for each test case
+    for result in results:
+        duration = durations.get(result.name, datetime.timedelta())
+        if result.duration > duration:
+            duration = result.duration
+        durations[result.name] = duration
+
+    print("")
+    print("# Slow tests")
+    print("")
+    print("| Duration | Name |")
+    print("|----------|------|")
+
+    print_count = 0
+    for testname, duration in sorted(
+        durations.items(), key=lambda x: x[1], reverse=True
+    ):
+        if print_count > 7:
+            break
+        print_count += 1
+
+        print(f"| {duration} | {testname} |")
+
+
+def print_flaky_tests_report(results: List[Result]) -> None:
     counts: Dict[str, Dict[ResultKind, int]] = {}
     for result in results:
         counts_for_result = counts.get(result.name, {})
@@ -161,6 +193,11 @@ def print_report(results: List[Result]) -> None:
         fail = stats.get(ResultKind.FAIL, 0)
         error = stats.get(ResultKind.ERROR, 0)
         print(f"| {pazz:4d} | {fail:4d} | {error:5d} | {name} |")
+
+
+def print_report(results: List[Result]) -> None:
+    print_slow_tests_report(results)
+    print_flaky_tests_report(results)
 
 
 def main(args: List[str]) -> None:
