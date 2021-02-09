@@ -231,9 +231,9 @@ def is_flaky(string: str) -> bool:
 
 
 def print_flaky_tests_report(results: List[Result]) -> None:
-    result_string: Dict[str, str] = {}
+    result_strings: Dict[str, str] = {}
     for result in sorted(results, key=lambda r: r.timestamp):
-        string = result_string.get(result.name, "")
+        string = result_strings.get(result.name, "")
         if result.kind == ResultKind.PASS:
             string += "."
         elif result.kind == ResultKind.FAIL:
@@ -242,20 +242,27 @@ def print_flaky_tests_report(results: List[Result]) -> None:
             string += "E"
         else:
             assert False
-        result_string[result.name] = string
+        result_strings[result.name] = string
+
+    flakies = {}
+    for name, string in result_strings.items():
+        if is_flaky(string):
+            flakies[name] = string
 
     print("")
     print("# Flaky tests")
     print("")
+
+    if not flakies:
+        print("No flaky tests found.")
+        return
+
     print("`.` = pass, `x` = fail, `E` = error")
     print("")
     print("| Result | Name |")
     print("|--------|------|")
-    for name in sorted(result_string.keys()):
-        string = result_string[name]
-        if not is_flaky(string):
-            continue
-
+    for name in sorted(flakies.keys()):
+        string = result_strings[name]
         print(f"| `{string}` | `{name}` |")
 
 
