@@ -31,6 +31,10 @@ ERROR = re.compile(r"    <error ")
 # Example: <failure message="expected:&lt;4&gt; but was:&lt;3&gt;" type=...
 FAILURE = re.compile(r"    <failure ")
 
+# Example: target/testalot/surefire-reports-20210209T114442-3/TEST-com.spotify.ads.adserver.faf.FafQueryBuilderTest.xml
+# Capture: 20210209T114442
+TESTRUN_RE = re.compile(r".*/surefire-reports-([0-9T]+)-[0-9]+/")
+
 
 class ResultKind(enum.Enum):
     PASS = enum.auto()
@@ -39,10 +43,15 @@ class ResultKind(enum.Enum):
 
 
 class Result(NamedTuple):
+    # Format: a.b.c.ClassName.testName()
     name: str
+
     kind: ResultKind
     duration: datetime.timedelta
     timestamp: datetime.datetime
+
+    # File name with full path of the (XML) file where this test result was read from.
+    path: str
 
 
 def surefire_reports() -> List[str]:
@@ -137,7 +146,9 @@ def parse_xml(path: str):
                 assert result_kind
                 assert timestamp
                 assert duration is not None
-                results.append(Result(current_test, result_kind, duration, timestamp))
+                results.append(
+                    Result(current_test, result_kind, duration, timestamp, path)
+                )
             testname = match.group(1)
             classname = match.group(2)
             duration = datetime.timedelta(
@@ -161,7 +172,7 @@ def parse_xml(path: str):
         assert timestamp
         assert result_kind
         assert duration is not None
-        results.append(Result(current_test, result_kind, duration, timestamp))
+        results.append(Result(current_test, result_kind, duration, timestamp, path))
 
     return results
 
@@ -235,6 +246,17 @@ def is_flaky(string: str) -> bool:
     return False
 
 
+def count_runs(results: List[Result]) -> int:
+    timestamps = set()
+    for result in results:
+        # Example: target/testalot/surefire-reports-20210209T114442-1/TEST-com.spotify.ads.adserver.faf.FafQueryBuilderTest.xml
+        timestamp_match = TESTRUN_RE.match(result.path)
+        assert timestamp_match
+        timestamps.add(timestamp_match.group(1))
+
+    return len(timestamps)
+
+
 def print_flaky_tests_report(results: List[Result]) -> None:
     result_strings: Dict[str, str] = {}
     for result in sorted(results, key=lambda r: r.timestamp):
@@ -255,7 +277,7 @@ def print_flaky_tests_report(results: List[Result]) -> None:
             flakies[name] = string
 
     print("")
-    print("# Flaky tests")
+    print(f"# Flaky tests, {count_runs(results)} runs")
     print("")
 
     if not flakies:
