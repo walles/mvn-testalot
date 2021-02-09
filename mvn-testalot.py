@@ -45,14 +45,31 @@ class Result(NamedTuple):
     timestamp: datetime.datetime
 
 
+def surefire_reports() -> List[str]:
+    """
+    Find all directories named "target/surefire-reports" next to a "pom.xml" file.
+    """
+    surefire_reports = []
+    for dirpath, dirnames, filenames in os.walk("."):
+        for filename in filenames:
+            if filename != "pom.xml":
+                continue
+
+            surefire_reports_dir = os.path.join(dirpath, "target", "surefire-reports")
+            if os.path.isdir(surefire_reports_dir):
+                surefire_reports.append(surefire_reports_dir)
+
+    return surefire_reports
+
+
 def mvn_test_times(count: int) -> List[Result]:
     global_start = datetime.datetime.now()
     for i in range(count):
-        if os.path.isdir("target/surefire-reports"):
-            shutil.rmtree("target/surefire-reports")
-
         if not os.path.isfile("pom.xml"):
             sys.exit("Must be in the root of the source tree, pom.xml not found")
+
+        for surefire_reports_dir in surefire_reports():
+            shutil.rmtree(surefire_reports_dir)
 
         start = datetime.datetime.now()
         result = subprocess.run(args=["mvn", "test"])
@@ -72,7 +89,7 @@ def mvn_test_times(count: int) -> List[Result]:
                 f"mvn-testalot: {runs_left} runs left, expect finish at {eta.isoformat(timespec='seconds')}, {time_left} from now"
             )
 
-        assert os.path.isdir("target/surefire-reports")  # Otherwise no tests were run
+        assert surefire_reports()  # Otherwise no tests were run
 
         os.makedirs("target/testalot", exist_ok=True)
 
@@ -84,9 +101,13 @@ def mvn_test_times(count: int) -> List[Result]:
             .replace("-", "")
         )
 
-        shutil.move(
-            "target/surefire-reports", f"target/testalot/surefire-reports-{timestamp}"
-        )
+        number = 1
+        for surefire_report in surefire_reports():
+            shutil.move(
+                surefire_report,
+                f"target/testalot/surefire-reports-{timestamp}-{number}",
+            )
+            number += 1
 
     now = datetime.datetime.now()
     print(f"mvn-testalot: All done at {now.isoformat(timespec='seconds')}")
