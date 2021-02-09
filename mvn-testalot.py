@@ -72,7 +72,11 @@ def mvn_test_times(count: int) -> List[Result]:
             shutil.rmtree(surefire_reports_dir)
 
         start = datetime.datetime.now()
-        result = subprocess.run(args=["mvn", "test"])
+
+        # --fail-never makes all tests run in a multi module project, even if
+        # earlier modules see test failures.
+        result = subprocess.run(args=["mvn", "--fail-never", "test"])
+
         end = datetime.datetime.now()
         duration = end - start
         print("")
