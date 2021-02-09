@@ -78,17 +78,6 @@ def mvn_test_times(count: int) -> List[Result]:
         print("")
         print(f"mvn-testalot: Exit code {result.returncode} after {duration}")
 
-        runs_left = count - 1 - i
-        if runs_left:
-            runs_done = i + 1
-            time_elapsed = datetime.datetime.now() - global_start
-            time_per_run = time_elapsed / runs_done
-            time_left = time_per_run * runs_left
-            eta = datetime.datetime.now() + time_left
-            print(
-                f"mvn-testalot: {runs_left} runs left, expect finish at {eta.isoformat(timespec='seconds')}, {time_left} from now"
-            )
-
         assert surefire_reports()  # Otherwise no tests were run
 
         os.makedirs("target/testalot", exist_ok=True)
@@ -108,6 +97,18 @@ def mvn_test_times(count: int) -> List[Result]:
                 f"target/testalot/surefire-reports-{timestamp}-{number}",
             )
             number += 1
+
+        runs_left = count - 1 - i
+        if runs_left:
+            runs_done = i + 1
+            now = datetime.datetime.now()
+            time_elapsed = now - global_start
+            time_per_run = time_elapsed / runs_done
+            time_left = time_per_run * runs_left
+            eta = now + time_left
+            print(
+                f"mvn-testalot: {runs_left} runs left, expect finish at {eta.isoformat(timespec='seconds')}, {time_left} from now"
+            )
 
     now = datetime.datetime.now()
     print(f"mvn-testalot: All done at {now.isoformat(timespec='seconds')}")
