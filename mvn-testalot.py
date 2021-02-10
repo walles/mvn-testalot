@@ -33,7 +33,7 @@ FAILURE = re.compile(r"    <failure ")
 
 # Example: target/testalot/surefire-reports-20210209T114442-3/TEST-com.spotify.ads.adserver.faf.FafQueryBuilderTest.xml
 # Capture: 20210209T114442
-TESTRUN_RE = re.compile(r".*/surefire-reports-([0-9T]+)-[0-9]+/")
+TESTRUN_RE = re.compile(r".*/surefire-reports-([0-9T]+)(-[0-9]+)?/")
 
 
 class ResultKind(enum.Enum):
@@ -251,7 +251,9 @@ def count_runs(results: List[Result]) -> int:
     for result in results:
         # Example: target/testalot/surefire-reports-20210209T114442-1/TEST-com.spotify.ads.adserver.faf.FafQueryBuilderTest.xml
         timestamp_match = TESTRUN_RE.match(result.path)
-        assert timestamp_match
+        if not timestamp_match:
+            print(result.path, file=sys.stderr)
+            assert timestamp_match
         timestamps.add(timestamp_match.group(1))
 
     return len(timestamps)
