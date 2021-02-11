@@ -1,0 +1,4 @@
+/env/
+/.vscode/
+/.tox/
+/.mypy_cache/

@@ -303,7 +303,7 @@ def print_report(results: List[Result]) -> None:
 def main(args: List[str]) -> None:
     count = None
     try:
-        count = int(int(args[1]))
+        count = int(args[1])
     except:
         # Didn't work, never mind
         pass
