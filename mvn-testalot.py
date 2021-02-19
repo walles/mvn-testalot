@@ -198,6 +198,7 @@ def collect_results(paths: List[str]) -> List[Result]:
 
 def print_slow_tests_report(results: List[Result]) -> None:
     slow_results: Dict[str, Result] = {}
+    fast_results: Dict[str, Result] = {}
 
     # Figure out max duration for each test case
     for current_result in results:
@@ -205,6 +206,11 @@ def print_slow_tests_report(results: List[Result]) -> None:
         if slow_result is None or current_result.duration > slow_result.duration:
             slow_result = current_result
         slow_results[current_result.name] = slow_result
+
+        fast_result = fast_results.get(current_result.name, None)
+        if fast_result is None or current_result.duration < fast_result.duration:
+            fast_result = current_result
+        fast_results[current_result.name] = fast_result
 
     print_these = sorted(slow_results.values(), key=lambda r: r.duration, reverse=True)[
         :TOP_SLOW_TESTS
@@ -227,11 +233,15 @@ def print_slow_tests_report(results: List[Result]) -> None:
         f"The tests listed here make up {slow_test_percentage}% of the total testing time."
     )
     print("")
-    print("| Result | Duration | Name |")
-    print("|--------|----------|------|")
+    print("Numbers in parentheses show the fastest run of each test.")
+    print("")
+    print("| Result |    Duration   | Name |")
+    print("|--------|---------------|------|")
     for result in print_these:
-        duration_s = f"{result.duration.total_seconds():.1f}s"
-        print(f"| {result.kind.name:6s} | {duration_s:>8s} | `{result.name}` |")
+        slow_duration_s = f"{result.duration.total_seconds():.1f}s"
+        fast_duration_s = f"{fast_results[result.name].duration.total_seconds():.1f}s"
+        duration_s = f"{slow_duration_s:>6s} ({fast_duration_s})"
+        print(f"| {result.kind.name:6s} | {duration_s} | `{result.name}` |")
 
 
 def is_flaky(string: str) -> bool:
