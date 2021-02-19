@@ -241,7 +241,10 @@ def print_slow_tests_report(results: List[Result]) -> None:
         slow_duration_s = f"{result.duration.total_seconds():.1f}s"
         fast_duration_s = f"{fast_results[result.name].duration.total_seconds():.1f}s"
         duration_s = f"{slow_duration_s:>6s} ({fast_duration_s})"
-        print(f"| {result.kind.name:6s} | {duration_s} | `{result.name}` |")
+        result_s = result.kind.name
+        if result.kind is ResultKind.PASS:
+            result_s = "ok"
+        print(f"| {result_s:6s} | {duration_s} | `{result.name}` |")
 
 
 def is_flaky(string: str) -> bool:
