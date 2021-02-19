@@ -230,7 +230,8 @@ def print_slow_tests_report(results: List[Result]) -> None:
     print("| Result | Duration | Name |")
     print("|--------|----------|------|")
     for result in print_these:
-        print(f"| {result.kind} | {result.duration} | `{result.name}` |")
+        duration_s = f"{result.duration.total_seconds():.1f}s"
+        print(f"| {result.kind.name:6s} | {duration_s:>8s} | `{result.name}` |")
 
 
 def is_flaky(string: str) -> bool:
