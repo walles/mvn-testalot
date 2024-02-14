@@ -3,7 +3,7 @@
 """
 Syntax:
   mvn-testalot.py 10  <-- Runs "mvn test" 10 times, retaining all surefire-reports XML files
-  mvn-testalot.py report target/testalot/  <-- Produces a Markdown report on stdout
+  mvn-testalot.py report  <-- Produces a Markdown report on stdout
 """
 
 import os
@@ -34,6 +34,9 @@ FAILURE = re.compile(r"    <failure ")
 # Example: target/testalot/surefire-reports-20210209T114442-3/TEST-com.spotify.ads.adserver.faf.FafQueryBuilderTest.xml
 # Capture: 20210209T114442
 TESTRUN_RE = re.compile(r".*/surefire-reports-([0-9T]+)(-[0-9]+)?/")
+
+# Default place where to collect test reports.
+DEFAULT_DATA_PATH = "target/testalot"
 
 
 class ResultKind(enum.Enum):
@@ -71,7 +74,7 @@ def surefire_reports() -> List[str]:
     return surefire_reports
 
 
-def mvn_test_times(count: int) -> List[Result]:
+def mvn_test_times(count: int, command: List[str] = None) -> List[Result]:
     global_start = datetime.datetime.now()
     for i in range(count):
         if not os.path.isfile("pom.xml"):
@@ -82,9 +85,13 @@ def mvn_test_times(count: int) -> List[Result]:
 
         start = datetime.datetime.now()
 
-        # --fail-never makes all tests run in a multi module project, even if
-        # earlier modules see test failures.
-        result = subprocess.run(args=["mvn", "--fail-never", "test"])
+        # If no command is given, use a sensible default.
+        if not command:
+            # --fail-never makes all tests run in a multi module project, even if
+            # earlier modules see test failures.
+            command = ["mvn", "--fail-never", "test"]
+
+        result = subprocess.run(args=command)
 
         end = datetime.datetime.now()
         duration = end - start
@@ -93,7 +100,7 @@ def mvn_test_times(count: int) -> List[Result]:
 
         assert surefire_reports()  # Otherwise no tests were run
 
-        os.makedirs("target/testalot", exist_ok=True)
+        os.makedirs(DEFAULT_DATA_PATH, exist_ok=True)
 
         # Example: "20210208T093519"
         timestamp = (
@@ -107,7 +114,7 @@ def mvn_test_times(count: int) -> List[Result]:
         for surefire_report in surefire_reports():
             shutil.move(
                 surefire_report,
-                f"target/testalot/surefire-reports-{timestamp}-{number}",
+                f"{DEFAULT_DATA_PATH}/surefire-reports-{timestamp}-{number}",
             )
             number += 1
 
@@ -126,7 +133,7 @@ def mvn_test_times(count: int) -> List[Result]:
     now = datetime.datetime.now()
     print(f"mvn-testalot: All done at {now.isoformat(timespec='seconds')}")
 
-    return collect_results(["target/testalot"])
+    return collect_results([DEFAULT_DATA_PATH])
 
 
 def parse_xml(path: str):
@@ -176,6 +183,8 @@ def parse_xml(path: str):
 
 
 def collect_results(paths: List[str]) -> List[Result]:
+    if not paths:
+        paths = [DEFAULT_DATA_PATH]
     results = []
     for path in paths:
         if os.path.isfile(path):
@@ -312,6 +321,11 @@ def print_report(results: List[Result]) -> None:
     print_flaky_tests_report(results)
 
 
+def wipe_collected_data() -> None:
+    if os.path.isdir(DEFAULT_DATA_PATH):
+        shutil.rmtree(DEFAULT_DATA_PATH)
+
+
 def main(args: List[str]) -> None:
     count = None
     try:
@@ -321,15 +335,19 @@ def main(args: List[str]) -> None:
         pass
 
     if count:
-        results = mvn_test_times(count)
+        results = mvn_test_times(count, args[2:])
         print_report(results)
         sys.exit(0)
 
-    assert args[1] == "report"
-
-    # Collect test results for the given path(s)
-    results = collect_results(args[2:])
-    print_report(results)
+    if args[1] == "report":
+        # Collect test results for the given path(s)
+        results = collect_results(args[2:])
+        print_report(results)
+    elif args[1] == "clean":
+        wipe_collected_data()
+    else:
+        sys.stderr.write(f"Unknown command: {args[1]}\n")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

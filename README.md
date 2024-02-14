@@ -11,7 +11,7 @@ mvn-testalot.py 10
 
 Analyze results:
 ```
-mvn-testalot.py report target/testalot
+mvn-testalot.py report
 ```
 
 # Example output
