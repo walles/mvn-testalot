@@ -160,10 +160,8 @@ def parse_xml(path: str):
             continue
 
         if ERROR.match(line):
-            assert result_kind == ResultKind.PASS
             result_kind = ResultKind.ERROR
         elif FAILURE.match(line):
-            assert result_kind == ResultKind.PASS
             result_kind = ResultKind.FAIL
 
         # Unknown line, just ignore it
