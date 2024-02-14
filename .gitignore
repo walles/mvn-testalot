@@ -2,3 +2,4 @@
 /.vscode/
 /.tox/
 /.mypy_cache/
+.idea
