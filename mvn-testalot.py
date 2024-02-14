@@ -98,7 +98,9 @@ def mvn_test_times(count: int, command: List[str] = None) -> List[Result]:
         print("")
         print(f"mvn-testalot: Exit code {result.returncode} after {duration}")
 
-        assert surefire_reports()  # Otherwise no tests were run
+        # If no tests were run, give up, it does not make sense to try again.
+        if not surefire_reports():
+            break
 
         os.makedirs(DEFAULT_DATA_PATH, exist_ok=True)
 
@@ -226,16 +228,24 @@ def print_slow_tests_report(results: List[Result]) -> None:
     slow_testnames = list(map(lambda result: result.name, print_these))
     total_time = datetime.timedelta(0)
     time_spent_in_slow_tests = datetime.timedelta(0)
-    for current_result in results:
-        total_time += current_result.duration
-        if current_result.name in slow_testnames:
-            time_spent_in_slow_tests += current_result.duration
 
-    slow_test_percentage = int((time_spent_in_slow_tests * 100) / total_time)
+    if results:
+        for current_result in results:
+            total_time += current_result.duration
+            if current_result.name in slow_testnames:
+                time_spent_in_slow_tests += current_result.duration
+        slow_test_percentage = int((time_spent_in_slow_tests * 100) / total_time)
+    else:
+        slow_test_percentage = 0
 
     print("")
     print("# Slow tests")
     print("")
+
+    if not results:
+        print("No tests found.")
+        return
+
     print(
         f"The tests listed here make up {slow_test_percentage}% of the total testing time."
     )
