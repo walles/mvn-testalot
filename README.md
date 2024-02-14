@@ -16,7 +16,7 @@ mvn-testalot.py report
 
 # Example output
 
-Output is printed as human readable Markdown, for easy Github bug reporting.
+Output is printed as human readable Markdown, for easy GitHub bug reporting.
 
 # Slow tests
 
