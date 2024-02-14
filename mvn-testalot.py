@@ -330,7 +330,7 @@ def main(args: List[str]) -> None:
     count = None
     try:
         count = int(args[1])
-    except:
+    except (IndexError, ValueError):
         # Didn't work, never mind
         pass
 
