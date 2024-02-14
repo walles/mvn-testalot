@@ -327,10 +327,17 @@ def wipe_collected_data() -> None:
 
 
 def main(args: List[str]) -> None:
+    if len(args) == 1:
+        print("Usage:")
+        print(f"{args[0]} <count_runs>          # Run the tests, collect the results and print a report")
+        print(f"{args[0]} report [<path> ...]   # Print a report of previously collected results")
+        print(f"{args[0]} clean                 # Clean previously collected data")
+        sys.exit(0)
+
     count = None
     try:
         count = int(args[1])
-    except (IndexError, ValueError):
+    except ValueError:
         # Didn't work, never mind
         pass
 
